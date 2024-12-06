@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GScript 2 Obfuscator 1.0</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #2C2F33; /* Discord dark background */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #23272A; /* Discord container background */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 900px;
+            width: 90%;
+            margin: auto;
+        }
+        h1 {
+            text-align: center;
+            color: #ffffff; /* Discord blurple */
+            margin-bottom: 20px;
+            font-size: 26px;
+        }
+        .textarea-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 15px;
+            margin: 0 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #5865F2; /* Discord button background */
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #4852B2; /* Darker blurple for hover */
+        }
+        .readonly {
+            background-color: #2C2F33;
+            cursor: not-allowed;
+        }
+        .CodeMirror {
+            height: 200px;
+            background-color: #2C2F33; /* CodeMirror background matching Discord */
+            border: 1px solid #444;
+            border-radius: 10px;
+            color: #FFFFFF; /* CodeMirror font color */
+        }
+        #Author {
+          text-align: right;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple GS2 Obfuscator 1.0</h1>
+        <div class="textarea-wrapper">
+            <label style="color: #ffffff; font-size: 18px;">Input:</label>
+            <textarea id="inputScript" placeholder="Enter your script here..."></textarea>
+            <label style="color: #ffffff; font-size: 18px;">Output:</label>
+            <textarea id="outputScript" class="readonly" placeholder="Output will appear here..." readonly></textarea>
+        </div>
+        <div class="button-container">
+            <button onclick="obfuscate()">Obfuscate Script</button>
+            <button onclick="deobfuscate()">Deobfuscate Script</button>
+        </div>
+        <label style="color: #ffffff; font-size: 12px;">Made By Yazeed (2024)</label>
+    </div>
+    <script>
+function base64Encode(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+
+function base64Decode(str) {
+    return decodeURIComponent(escape(atob(str)));
+}
+
+function obfuscateGS2(script) {
+    const obfuscateString = (match, p1, p2) => {
+        return `base64decode("${base64Encode(p2)}")`;
+    };
+
+    const obfuscateProperties = (match, p1, p2) => {
+        const properties = p2.split('.');
+        const obfuscatedProperties = properties.map(prop => `(@base64decode("${base64Encode(prop)}"))`);
+        return `${p1}.${obfuscatedProperties.join('.')}`;
+    };
+
+    const obfuscateNumber = (match, p1) => {
+        return `(@float(base64decode("${base64Encode(p1)}")))`;
+    };
+
+    // Regex patterns to match function definitions and assignments
+    const functionDeclarationRegex = /function\s+([\w.$]+)\s*\(([^)]*)\)/g;
+    const functionAssignmentRegex = /([\w.$]+)\s*=\s*function\s*\(([^)]*)\)/g;
+
+    // Temporarily replace function definitions and assignments with placeholders
+    let functionHeaders = [];
+    script = script.replace(functionDeclarationRegex, (match, funcName, funcArgs) => {
+        functionHeaders.push(`function ${funcName}(${funcArgs || ""})`);
+        return `/*FUNCTION_PLACEHOLDER_${functionHeaders.length - 1}*/`;
+    });
+
+    script = script.replace(functionAssignmentRegex, (match, funcName, funcArgs) => {
+        functionHeaders.push(`${funcName} = function(${funcArgs || ""})`);
+        return `/*FUNCTION_PLACEHOLDER_${functionHeaders.length - 1}*/`;
+    });
+
+    // Apply obfuscation to everything else (properties, numbers, strings)
+    script = script.replace(/(["'`])(.*?)\1/g, obfuscateString); // Obfuscate strings
+    script = script.replace(/(\d*\.\d+|\.\d+)\b/g, obfuscateNumber); // Obfuscate numbers
+    script = script.replace(/\b(\w+)\.([\w.]+)\b/g, obfuscateProperties); // Obfuscate object properties
+    script = script.replace(/\b(\d+)\b/g, obfuscateNumber); // Obfuscate integers
+
+    // Restore function definitions and assignments
+    script = script.replace(/\/\*FUNCTION_PLACEHOLDER_(\d+)\*\//g, (_, index) => {
+        return functionHeaders[index];
+    });
+
+    return script;
+}
+
+function deobfuscateGS2(script) {
+    const decodeBase64 = (str) => {
+        try {
+            return base64Decode(str); // Decode base64 using your predefined function
+        } catch (error) {
+            return str; // Return the original string if decoding fails
+        }
+    };
+
+    const cleanProperty = (property) => {
+        return property.replace(/\(@"([^"]+)"\)/g, (_, encoded) => {
+            const decoded = decodeBase64(encoded);
+            if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(decoded)) { // Ensure it's a valid property name
+                return `${decoded}`;
+            }
+            return `(@"${encoded}")`; // Retain original if not a valid property
+        });
+    };
+
+    const processScript = (input) => {
+        // Decode base64 strings
+        input = input.replace(/base64decode\((["'])(.*?)\1\)/g, (_, __, inner) => {
+            return `"${decodeBase64(inner)}"`;
+        });
+
+        // Decode and remove `@float()` around base64 decoded values (return just the decoded number)
+        input = input.replace(/@float\((["']?)base64decode\((["'])(.*?)\2\)\1\)/g, (_, __, ___, inner) => {
+            const decoded = decodeBase64(inner);
+            // Remove quotes if present and convert to number
+            return parseFloat(decoded.replace(/["']/g, ''));
+        });
+
+        // Decode simple @float() with string arguments and convert them to numbers
+        input = input.replace(/@float\((["'])(.*?)\1\)/g, (_, __, inner) => {
+            return parseFloat(inner); // Convert to number, no quotes
+        });
+
+        // Clean string-like properties recursively
+        let previous;
+        do {
+            previous = input;
+            input = input.replace(/(\w+)((\.|\["|"|\[@|\(@).+?)(?=[;\s=])/g, (match, prefix, properties) => {
+                const cleanedProperties = cleanProperty(properties);
+                return `${prefix}${cleanedProperties}`;
+            });
+        } while (previous !== input); // Continue until no changes occur
+
+        return input;
+    };
+
+    return processScript(script);
+}
+
+
+function obfuscate() {
+    const inputScript = editorInput.getValue();
+    const obfuscatedScript = obfuscateGS2(inputScript);
+    editorOutput.setValue(obfuscatedScript);
+}
+
+function deobfuscate() {
+    const inputScript = editorInput.getValue();
+    const deobfuscatedScript = deobfuscateGS2(inputScript);
+    editorOutput.setValue(deobfuscatedScript);
+}
+
+function copyOutput() {
+    editorOutput.execCommand('selectAll');
+    document.execCommand('copy');
+    alert('Output copied to clipboard!');
+}
+
+const editorInput = CodeMirror.fromTextArea(document.getElementById('inputScript'), {
+    mode: 'javascript',
+    theme: 'dracula',
+    lineNumbers: true
+});
+
+const editorOutput = CodeMirror.fromTextArea(document.getElementById('outputScript'), {
+    mode: 'javascript',
+    theme: 'dracula',
+    lineNumbers: true,
+    readOnly: true
+});
+</script>
+</body>
+</html>
