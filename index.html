@@ -129,11 +129,9 @@
           return `(@float(base64decode("${base64Encode(p1)}")))`;
         };
 
-        // Regex patterns to match function definitions and assignments
         const functionDeclarationRegex = /function\s+([\w.$]+)\s*\(([^)]*)\)/g;
         const functionAssignmentRegex = /([\w.$]+)\s*=\s*function\s*\(([^)]*)\)/g;
 
-        // Temporarily replace function definitions and assignments with placeholders
         let functionHeaders = [];
         script = script.replace(functionDeclarationRegex, (match, funcName, funcArgs) => {
           functionHeaders.push(`function ${funcName}(${funcArgs || ""})`);
@@ -145,13 +143,11 @@
           return `/*FUNCTION_PLACEHOLDER_${functionHeaders.length - 1}*/`;
         });
 
-        // Apply obfuscation to everything else (properties, numbers, strings)
-        script = script.replace(/(["'`])(.*?)\1/g, obfuscateString); // Obfuscate strings
-        script = script.replace(/(\d*\.\d+|\.\d+)\b/g, obfuscateNumber); // Obfuscate numbers
-        script = script.replace(/\b(\w+)\.([\w.]+)\b/g, obfuscateProperties); // Obfuscate object properties
-        script = script.replace(/\b(\d+)\b/g, obfuscateNumber); // Obfuscate integers
+        script = script.replace(/(["'`])(.*?)\1/gi, obfuscateString); // Case insensitive string obfuscation
+        script = script.replace(/(\d*\.\d+|\.\d+)\b/g, obfuscateNumber);
+        script = script.replace(/\b(\w+)\.([\w.]+)\b/g, obfuscateProperties);
+        script = script.replace(/\b(\d+)\b/g, obfuscateNumber);
 
-        // Restore function definitions and assignments
         script = script.replace(/\/\*FUNCTION_PLACEHOLDER_(\d+)\*\//g, (_, index) => {
           return functionHeaders[index];
         });
@@ -162,9 +158,9 @@
       function deobfuscateGS2(script) {
         const decodeBase64 = (str) => {
           try {
-            return base64Decode(str); // Decode base64 using your predefined function
+            return base64Decode(str);
           } catch (error) {
-            return str; // Return the original string if decoding fails
+            return str;
           }
         };
 
@@ -172,32 +168,26 @@
           return property.replace(/\(@"([^"]+)"\)/g, (_, encoded) => {
             const decoded = decodeBase64(encoded);
             if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(decoded)) {
-              // Ensure it's a valid property name
               return `${decoded}`;
             }
-            return `(@"${encoded}")`; // Retain original if not a valid property
+            return `(@"${encoded}")`;
           });
         };
 
         const processScript = (input) => {
-          // Decode base64 strings
-          input = input.replace(/base64decode\((["'])(.*?)\1\)/g, (_, __, inner) => {
-            return `"${decodeBase64(inner)}"`;
+          input = input.replace(/base64decode\((["'])(.*?)\1\)/gi, (_, __, inner) => {
+            return `"${decodeBase64(inner)}"`; // Case insensitive base64decode
           });
 
-          // Decode and remove `@float()` around base64 decoded values (return just the decoded number)
-          input = input.replace(/@float\((["']?)base64decode\((["'])(.*?)\2\)\1\)/g, (_, __, ___, inner) => {
+          input = input.replace(/@float\((["']?)base64decode\((["'])(.*?)\2\)\1\)/gi, (_, __, ___, inner) => {
             const decoded = decodeBase64(inner);
-            // Remove quotes if present and convert to number
             return parseFloat(decoded.replace(/["']/g, ""));
           });
 
-          // Decode simple @float() with string arguments and convert them to numbers
           input = input.replace(/@float\((["'])(.*?)\1\)/g, (_, __, inner) => {
-            return parseFloat(inner); // Convert to number, no quotes
+            return parseFloat(inner);
           });
 
-          // Clean string-like properties recursively
           let previous;
           do {
             previous = input;
@@ -205,9 +195,8 @@
               const cleanedProperties = cleanProperty(properties);
               return `${prefix}${cleanedProperties}`;
             });
-          } while (previous !== input); // Continue until no changes occur
+          } while (previous !== input);
 
-          // Remove unnecessary parentheses around numbers
           input = input.replace(/\((\d+)\)/g, "$1");
 
           return input;
@@ -215,6 +204,7 @@
 
         return processScript(script);
       }
+
       function obfuscate() {
         const inputScript = editorInput.getValue();
         const obfuscatedScript = obfuscateGS2(inputScript);
