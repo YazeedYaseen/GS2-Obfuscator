@@ -137,15 +137,15 @@ function deobfuscateGS2(script) {
       return num; // Return the number as-is if it already has a decimal
     });
 
-    // Convert @int() and int() to numbers, ensuring it's always a float with 1 decimal place
+    // Convert @int() and int() to numbers
     input = input.replace(/@int\((["'])(.*?)\1\)/g, (_, __, inner) => {
       let num = parseInt(inner); // Use parseInt to ensure it's treated as an integer
-      return num.toFixed(1); // Convert it to a float with 1 decimal place (e.g., 100 -> 100.0)
+      return num;
     });
 
     input = input.replace(/int\((["'])(.*?)\1\)/g, (_, __, inner) => {
       let num = parseInt(inner); // Use parseInt to ensure it's treated as an integer
-      return num.toFixed(1); // Convert it to a float with 1 decimal place (e.g., 100 -> 100.0)
+      return "(" + num + ")";
     });
 
     // Decode @"string" to base64 decoded values
