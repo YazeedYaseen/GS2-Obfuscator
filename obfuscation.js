@@ -91,7 +91,7 @@ function deobfuscateGS2(script) {
   // Decode base64-encoded strings
   const decodeBase64 = (str) => {
     try {
-      return atob(str);
+      return base64Decode(str);
     } catch (error) {
       return str;
     }
