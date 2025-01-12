@@ -19,9 +19,14 @@ function obfuscateGS2(script) {
     return `${base}.${obfuscatedProperties.join(".")}`;
   };
 
-  // Obfuscates numbers by encoding them into base64 and using float()
+  // Obfuscates numbers by encoding them into base64 and using int() or float()
   const obfuscateNumber = (match, number) => {
-    return `float(base64decode("${base64Encode(number)}"))`;
+    const num = parseFloat(number); // Convert to number
+    if (Number.isInteger(num)) {
+      return `int(base64decode("${base64Encode(number)}"))`; // Use int() for integers
+    } else {
+      return `float(base64decode("${base64Encode(number)}"))`; // Use float() for non-integers
+    }
   };
 
   // Obfuscates function calls, avoiding certain keywords like "if" and "for"
@@ -30,7 +35,7 @@ function obfuscateGS2(script) {
     const scriptKeyWords = ["if", "while", "switch", "with", "for", "new"];
 
     // Don't obfuscate base64decode and float
-    if (funcName === "base64decode" || funcName === "float") {
+    if (funcName === "base64decode" || funcName === "float" || funcName === "int") {
       return `${funcName}(${params})`;
     }
 
@@ -86,7 +91,7 @@ function deobfuscateGS2(script) {
   // Decode base64-encoded strings
   const decodeBase64 = (str) => {
     try {
-      return base64Decode(str);
+      return atob(str);
     } catch (error) {
       return str;
     }
@@ -113,9 +118,35 @@ function deobfuscateGS2(script) {
       return parseFloat(decodeBase64(inner).replace(/["']/g, ""));
     });
 
-    // Convert @float() and float() to numbers
-    input = input.replace(/@float\((["'])(.*?)\1\)/g, (_, __, inner) => parseFloat(inner));
-    input = input.replace(/float\((["'])(.*?)\1\)/g, (_, __, inner) => parseFloat(inner));
+    // Convert @float() and float() to numbers, ensuring they have a decimal if missing
+    input = input.replace(/@float\((["'])(.*?)\1\)/g, (_, __, inner) => {
+      let num = parseFloat(inner);
+      // Check if the number has no decimal part (it's an integer)
+      if (!inner.includes('.')) {
+        return num.toFixed(1); // Add .0 if no decimal is present
+      }
+      return num; // Return the number as-is if it already has a decimal
+    });
+
+    input = input.replace(/float\((["'])(.*?)\1\)/g, (_, __, inner) => {
+      let num = parseFloat(inner);
+      // Check if the number has no decimal part (it's an integer)
+      if (!inner.includes('.')) {
+        return num.toFixed(1); // Add .0 if no decimal is present
+      }
+      return num; // Return the number as-is if it already has a decimal
+    });
+
+    // Convert @int() and int() to numbers, ensuring it's always a float with 1 decimal place
+    input = input.replace(/@int\((["'])(.*?)\1\)/g, (_, __, inner) => {
+      let num = parseInt(inner); // Use parseInt to ensure it's treated as an integer
+      return num.toFixed(1); // Convert it to a float with 1 decimal place (e.g., 100 -> 100.0)
+    });
+
+    input = input.replace(/int\((["'])(.*?)\1\)/g, (_, __, inner) => {
+      let num = parseInt(inner); // Use parseInt to ensure it's treated as an integer
+      return num.toFixed(1); // Convert it to a float with 1 decimal place (e.g., 100 -> 100.0)
+    });
 
     // Decode @"string" to base64 decoded values
     input = input.replace(/\(@"([^"]+)"\)/g, (_, encoded) => decodeBase64(encoded));
