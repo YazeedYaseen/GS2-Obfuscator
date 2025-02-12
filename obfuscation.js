@@ -16,7 +16,7 @@ function obfuscateGS2(script) {
   const obfuscateProperties = (match, base, props) => {
     const properties = props.split(".");
     const obfuscatedProperties = properties.map((prop) => `(@base64decode("${base64Encode(prop)}"))`);
-    return `${base}.${obfuscatedProperties.join(".")}`;
+    return `(@base64decode("${base64Encode(base)}")).${obfuscatedProperties.join(".")}`;
   };
 
   // Obfuscates numbers by encoding them into base64 and using int() or float()
